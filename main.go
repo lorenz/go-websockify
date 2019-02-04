@@ -24,6 +24,7 @@ var backendConnections = prometheus.NewCounterVec(prometheus.CounterOpts{
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	Subprotocols:    []string{"binary"},
 }
 
 var remoteAddr *net.TCPAddr
