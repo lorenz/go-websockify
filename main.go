@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"log"
 	"net"
 	"net/http"
@@ -27,8 +28,6 @@ var upgrader = websocket.Upgrader{
 	Subprotocols:    []string{"binary"},
 }
 
-var remoteAddr *net.TCPAddr
-
 func init() {
 	prometheus.MustRegister(activeConnections)
 	prometheus.MustRegister(backendConnections)
@@ -38,12 +37,6 @@ func main() {
 	path := os.Getenv("HTTP_PATH")
 	if path == "" {
 		path = "/"
-	}
-	remoteAddrRaw := os.Getenv("REMOTE_ADDRESS")
-	var err error
-	remoteAddr, err = net.ResolveTCPAddr("tcp", remoteAddrRaw)
-	if err != nil {
-		log.Fatalln(err)
 	}
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc(path, handler)
@@ -57,7 +50,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
-	lconn, err := net.DialTCP("tcp", nil, remoteAddr)
+	var tcpConn net.Conn
+	if os.Getenv("TLS_TARGET") != "" {
+		tcpConn, err = tls.Dial("tcp", os.Getenv("REMOTE_ADDR"), &tls.Config{
+			InsecureSkipVerify: os.Getenv("NO_SSL_VERIFY") != "",
+		})
+	} else {
+		tcpConn, err = net.Dial("tcp", os.Getenv("REMOTE_ADDR"))
+	}
 	if err != nil {
 		log.Println(err)
 		backendConnections.WithLabelValues("failed").Inc()
@@ -65,10 +65,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	backendConnections.WithLabelValues("successful").Inc()
 	activeConnections.Inc()
-	proxy(conn, lconn)
+	proxy(conn, tcpConn)
 }
 
-func proxy(wsConn *websocket.Conn, tcpConn *net.TCPConn) {
+func proxy(wsConn *websocket.Conn, tcpConn net.Conn) {
 	defer activeConnections.Dec()
 	go func() {
 		defer wsConn.Close()
