@@ -75,16 +75,19 @@ func proxy(wsConn *websocket.Conn, tcpConn *net.TCPConn) {
 		for {
 			t, buf, err := wsConn.ReadMessage()
 			if err != nil {
+				log.Println(err)
 				return
 			}
 			switch t {
 			case websocket.BinaryMessage:
 				_, err := tcpConn.Write(buf)
 				if err != nil {
+					log.Println(err)
 					return
 				}
 			case websocket.PingMessage:
 				if err := wsConn.WriteMessage(websocket.PongMessage, buf); err != nil {
+					log.Println(err)
 					return
 				}
 			case websocket.PongMessage:
@@ -99,9 +102,11 @@ func proxy(wsConn *websocket.Conn, tcpConn *net.TCPConn) {
 	for {
 		n, err := tcpConn.Read(buf)
 		if err != nil {
+			log.Println(err)
 			return
 		}
 		if err := wsConn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+			log.Println(err)
 			return
 		}
 	}
