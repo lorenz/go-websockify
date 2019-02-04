@@ -34,7 +34,7 @@ func init() {
 }
 
 func main() {
-	path := os.Getenv("PATH")
+	path := os.Getenv("HTTP_PATH")
 	if path == "" {
 		path = "/"
 	}
